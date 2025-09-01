@@ -292,7 +292,8 @@ class Log(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        return out_grad / node.inputs[0]
+        (a,) = node.inputs
+        return out_grad / a
         ### END YOUR SOLUTION
 
 
@@ -308,7 +309,8 @@ class Exp(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        return out_grad * exp(node.inputs[0])
+        (a,) = node.inputs
+        return out_grad * exp(a)
         ### END YOUR SOLUTION
 
 
@@ -324,7 +326,8 @@ class ReLU(TensorOp):
 
     def gradient(self, out_grad, node):
         ### BEGIN YOUR SOLUTION
-        return out_grad * (node.realize_cached_data() > 0)
+        (a,) = node.inputs
+        return out_grad * (a.realize_cached_data() > 0)
         ### END YOUR SOLUTION
 
 
