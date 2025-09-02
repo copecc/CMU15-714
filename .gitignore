@@ -6,6 +6,7 @@ __pycache__/
 # C extensions
 *.so
 .clangd
+.clang-format
 
 # Distribution / packaging
 .Python
@@ -121,7 +122,6 @@ celerybeat.pid
 *.sage.py
 
 # Environments
-pyproject.toml
 uv.lock
 .env
 .venv

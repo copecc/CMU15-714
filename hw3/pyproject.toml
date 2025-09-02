@@ -1,0 +1,14 @@
+[project]
+name = "CMU10-714-hw3"
+version = "0.1.0"
+description = "CMU 10-714 hw3"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "ipykernel>=6.30.1",
+    "numdifftools>=0.9.41",
+    "numpy>=2.2.6",
+    "pybind11>=3.0.1",
+    "pytest>=8.4.1",
+    "requests>=2.32.5",
+]
