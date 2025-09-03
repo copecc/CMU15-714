@@ -12,8 +12,8 @@ class LogSoftmax(TensorOp):
     def compute(self, Z: NDArray):
         ### BEGIN YOUR SOLUTION
         # Assume the input NDArray is 2 dimensional and we are doing softmax over axis=1
-        max_Z = array_api.max(Z, axis=1, keepdims=True)
-        sum_exp = array_api.sum(array_api.exp(Z - max_Z), axis=-1, keepdims=True)
+        max_Z = array_api.broadcast_to(array_api.max(Z, axis=1, keepdims=True),Z.shape)
+        sum_exp = array_api.broadcast_to(array_api.sum(array_api.exp(Z - max_Z), axis=-1, keepdims=True),Z.shape)
         lse = array_api.log(sum_exp) + max_Z
         return Z - lse
         ### END YOUR SOLUTION
@@ -39,7 +39,7 @@ class LogSumExp(TensorOp):
     def compute(self, Z: NDArray):
         ### BEGIN YOUR SOLUTION
         max_Z = array_api.max(Z, axis=self.axes, keepdims=True)
-        sum_exp = array_api.sum(array_api.exp(Z - max_Z), axis=self.axes, keepdims=True)
+        sum_exp = array_api.sum(array_api.exp(Z - array_api.broadcast_to(max_Z, Z.shape)), axis=self.axes, keepdims=True)
         out = array_api.log(sum_exp) + max_Z
         out = array_api.squeeze(out, axis=self.axes)
         return out

@@ -229,11 +229,7 @@ class Summation(TensorOp):
         input_shape = a.shape
         axes = (self.axes,) if isinstance(self.axes, int) else self.axes
         axes = axes or tuple(range(len(input_shape)))
-        # Normalize negative axes
-        axes = tuple(ax if ax >= 0 else ax + len(input_shape) for ax in axes)
-        shape = list(out_grad.shape)
-        for ax in sorted(axes, reverse=True):
-            shape.insert(ax, 1)
+        shape = [size if i not in axes else 1 for i, size in enumerate(input_shape)]
         grad = out_grad.reshape(shape)
         return grad.broadcast_to(input_shape)
         ### END YOUR SOLUTION
