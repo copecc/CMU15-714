@@ -27,12 +27,12 @@ class MNISTDataset(Dataset):
 
     def __getitem__(self, index) -> object:
         ### BEGIN YOUR SOLUTION
-        img = self.images[index]
-        label = self.labels[index]
-        batch = 1 if img.ndim == 1 else img.shape[0]
+        img, label = self.images[index], self.labels[index]
         # Apply transforms. This works for mnist, using batch as channel
         img = self.apply_transforms(img.reshape(self.rows, self.cols, -1))
-        return img.reshape(batch, -1), label
+        if isinstance(index, (int, np.integer)):  # For single sample, no batching dim
+            return img.reshape(self.rows * self.cols), label
+        return img.reshape(-1, self.rows * self.cols), label
         ### END YOUR SOLUTION
 
     def __len__(self) -> int:

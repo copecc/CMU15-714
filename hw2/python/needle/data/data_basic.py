@@ -70,7 +70,10 @@ class DataLoader:
         ### BEGIN YOUR SOLUTION
         if self.idx >= len(self.ordering):
             raise StopIteration
-        batch = self.ordering[self.idx]
+        batch_index = self.ordering[self.idx]
         self.idx += 1
-        return [Tensor.make_const(x) for x in self.dataset[batch]]
+
+        batch_items = [self.dataset[i] for i in batch_index]
+        batch_items = list(zip(*batch_items))
+        return [Tensor(np.stack(items)) for items in batch_items]
         ### END YOUR SOLUTION
