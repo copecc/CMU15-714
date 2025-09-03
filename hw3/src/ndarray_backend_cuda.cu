@@ -311,33 +311,21 @@ void EwiseSub(const CudaArray& a, const CudaArray& b, CudaArray* out) {
   CudaDims dim = CudaOneDim(out->size);
   EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Sub());
 }
-void EwiseMul(const CudaArray& a, const CudaArray& b, CudaArray* out) {
-  CudaDims dim = CudaOneDim(out->size);
-  EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Mul());
-}
-void EwiseDiv(const CudaArray& a, const CudaArray& b, CudaArray* out) {
-  CudaDims dim = CudaOneDim(out->size);
-  EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Div());
-}
-void EwiseMaximum(const CudaArray& a, const CudaArray& b, CudaArray* out) {
-  CudaDims dim = CudaOneDim(out->size);
-  EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Maximum());
-}
-void EwiseEq(const CudaArray& a, const CudaArray& b, CudaArray* out) {
-  CudaDims dim = CudaOneDim(out->size);
-  EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Eq());
-}
-void EwiseGe(const CudaArray& a, const CudaArray& b, CudaArray* out) {
-  CudaDims dim = CudaOneDim(out->size);
-  EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Ge());
-}
 void ScalarSub(const CudaArray& a, scalar_t val, CudaArray* out) {
   CudaDims dim = CudaOneDim(out->size);
   ScalarKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size, Sub());
 }
+void EwiseMul(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Mul());
+}
 void ScalarMul(const CudaArray& a, scalar_t val, CudaArray* out) {
   CudaDims dim = CudaOneDim(out->size);
   ScalarKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size, Mul());
+}
+void EwiseDiv(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Div());
 }
 void ScalarDiv(const CudaArray& a, scalar_t val, CudaArray* out) {
   CudaDims dim = CudaOneDim(out->size);
@@ -347,13 +335,25 @@ void ScalarPower(const CudaArray& a, scalar_t val, CudaArray* out) {
   CudaDims dim = CudaOneDim(out->size);
   ScalarKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size, Pow());
 }
+void EwiseMaximum(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Maximum());
+}
 void ScalarMaximum(const CudaArray& a, scalar_t val, CudaArray* out) {
   CudaDims dim = CudaOneDim(out->size);
   ScalarKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size, Maximum());
 }
+void EwiseEq(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Eq());
+}
 void ScalarEq(const CudaArray& a, scalar_t val, CudaArray* out) {
   CudaDims dim = CudaOneDim(out->size);
   ScalarKernel<<<dim.grid, dim.block>>>(a.ptr, val, out->ptr, out->size, Eq());
+}
+void EwiseGe(const CudaArray& a, const CudaArray& b, CudaArray* out) {
+  CudaDims dim = CudaOneDim(out->size);
+  EwiseKernel<<<dim.grid, dim.block>>>(a.ptr, b.ptr, out->ptr, out->size, Ge());
 }
 void ScalarGe(const CudaArray& a, scalar_t val, CudaArray* out) {
   CudaDims dim = CudaOneDim(out->size);
@@ -394,7 +394,7 @@ __global__ void MatmulKernel(const scalar_t* a, const scalar_t* b, scalar_t* out
     uint32_t a_col = k * TILE + threadIdx.x;
     uint32_t b_row = k * TILE + threadIdx.y;
     uint32_t b_col = col;
-
+    // Cooperative loading
     As[threadIdx.y][threadIdx.x] = (a_row < M && a_col < N) ? a[a_row * N + a_col] : 0.0f;
     Bs[threadIdx.y][threadIdx.x] = (b_row < N && b_col < P) ? b[b_row * P + b_col] : 0.0f;
 
@@ -407,7 +407,7 @@ __global__ void MatmulKernel(const scalar_t* a, const scalar_t* b, scalar_t* out
     __syncthreads();
   }
 
-  // 写回结果
+  // Write back the result
   if (row < M && col < P) {
     out[row * P + col] = acc;
   }
