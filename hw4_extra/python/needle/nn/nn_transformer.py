@@ -5,29 +5,15 @@ from needle import ops
 import needle.init as init
 import numpy as np
 from .nn_sequence import Embedding
-from .nn_basic import (
-    Parameter, 
-    Module, 
-    ReLU,
-    Dropout,
-    LayerNorm1d,
-    Linear,
-    Sequential
-)
+from .nn_basic import Parameter, Module, ReLU, Dropout, LayerNorm1d, Linear, Sequential
 
 
 class MultiHeadAttention(Module):
     """
     The multi-head self attention module.
     """
-    def __init__(
-        self,
-        *,
-        dropout = 0.,
-        causal = False,
-        device = None,
-        dtype = "float32",
-    ):
+
+    def __init__(self, *, dropout=0.0, causal=False, device=None, dtype="float32"):
 
         super().__init__()
 
@@ -41,11 +27,9 @@ class MultiHeadAttention(Module):
         """
         return a triangular causal mask.
         """
-        mask = -np.finfo(np.float32).max * np.triu(
-            np.ones((1, 1, i, j), dtype=np.float32), j - i + 1)
+        mask = -np.finfo(np.float32).max * np.triu(np.ones((1, 1, i, j), dtype=np.float32), j - i + 1)
 
-        return ndarray.array(
-            mask, device=device)
+        return ndarray.array(mask, device=device)
 
     def matmul(self, a, b_transpose):
         """
@@ -69,13 +53,10 @@ class MultiHeadAttention(Module):
 
     def softmax(self, logit):
         """
-        The softmax function; 
+        The softmax function;
         """
         max_val = Tensor(
-            logit.realize_cached_data().max(axis=3),
-            device=logit.device,
-            dtype=logit.dtype,
-            requires_grad=False
+            logit.realize_cached_data().max(axis=3), device=logit.device, dtype=logit.dtype, requires_grad=False
         )
 
         max_val = max_val.reshape((*logit.shape[:-1], 1))
@@ -89,10 +70,7 @@ class MultiHeadAttention(Module):
 
         return probs / denom
 
-    def forward(
-        self,
-        q, k, v,
-    ):
+    def forward(self, q, k, v):
         """
         The forward function of the MultiHeadAttention activation function.
         Input: three states q, k, v, with shape (batch_size, num_head, seq_len, dim_head)
@@ -108,7 +86,14 @@ class MultiHeadAttention(Module):
         probs = None
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        scale = q_dim**0.5
+        logits = self.matmul(q, k) / scale
+        if self.causal:
+            mask = self.create_causal_mask(queries_len, keys_values_len, self.device)
+            logits = logits + mask.broadcast_to(logits.shape)
+        probs = self.softmax(logits)
+        probs = self.dropout(probs)
+        result = self.matmul(probs, v.transpose((2, 3)))
         ### END YOUR SOLUTION
 
         return result, probs
@@ -125,10 +110,10 @@ class AttentionLayer(Module):
         k_features: int = None,
         v_features: int = None,
         out_features: int = None,
-        dropout = 0.,
-        causal = True,
-        device = None,
-        dtype = "float32",
+        dropout=0.0,
+        causal=True,
+        device=None,
+        dtype="float32",
     ):
 
         super().__init__()
@@ -151,37 +136,21 @@ class AttentionLayer(Module):
         self.num_head = num_head
         self.dim_head = dim_head
 
-        self.prenorm_q = LayerNorm1d(
-            q_features, device=device, dtype=dtype)
-        self.prenorm_k = LayerNorm1d(
-            k_features, device=device, dtype=dtype)
-        self.prenorm_v = LayerNorm1d(
-            v_features, device=device, dtype=dtype)
+        self.prenorm_q = LayerNorm1d(q_features, device=device, dtype=dtype)
+        self.prenorm_k = LayerNorm1d(k_features, device=device, dtype=dtype)
+        self.prenorm_v = LayerNorm1d(v_features, device=device, dtype=dtype)
 
         inner_dim = num_head * dim_head
-        
-        self.q_projection = Linear(
-            q_features, inner_dim, bias=False,
-            device=device, dtype=dtype)
-        self.k_projection = Linear(
-            k_features, inner_dim, bias=False,
-            device=device, dtype=dtype)
-        self.v_projection = Linear(
-            v_features, inner_dim, bias=False,
-            device=device, dtype=dtype)
 
-        self.attn = MultiHeadAttention(
-            dropout=dropout, causal=causal,
-            device=device, dtype=dtype)
+        self.q_projection = Linear(q_features, inner_dim, bias=False, device=device, dtype=dtype)
+        self.k_projection = Linear(k_features, inner_dim, bias=False, device=device, dtype=dtype)
+        self.v_projection = Linear(v_features, inner_dim, bias=False, device=device, dtype=dtype)
 
-        self.out_projection = Linear(
-            inner_dim, out_features, bias=False,
-            device=device, dtype=dtype)
+        self.attn = MultiHeadAttention(dropout=dropout, causal=causal, device=device, dtype=dtype)
 
-    def forward(
-        self,
-        q, k=None, v=None,
-    ):
+        self.out_projection = Linear(inner_dim, out_features, bias=False, device=device, dtype=dtype)
+
+    def forward(self, q, k=None, v=None):
         """
         The forward function of the self-attention layer.
         Input: `q` with shape (batch_size, q_len, q_dim)
@@ -202,7 +171,18 @@ class AttentionLayer(Module):
         result = None
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        q = q.reshape((batch_size * queries_len, q_dim))
+        k = k.reshape((batch_size * keys_values_len, k_dim))
+        v = v.reshape((batch_size * keys_values_len, v_dim))
+        q, k, v = self.prenorm_q(q), self.prenorm_k(k), self.prenorm_v(v)
+        q, k, v = self.q_projection(q), self.k_projection(k), self.v_projection(v)
+        q = ops.permute(q.reshape((batch_size, queries_len, self.num_head, self.dim_head)), (0, 2, 1, 3))
+        k = ops.permute(k.reshape((batch_size, keys_values_len, self.num_head, self.dim_head)), (0, 2, 1, 3))
+        v = ops.permute(v.reshape((batch_size, keys_values_len, self.num_head, self.dim_head)), (0, 2, 1, 3))
+        x, _ = self.attn(q, k, v)
+        x = ops.permute(x, (0, 2, 1, 3)).reshape((batch_size * queries_len, self.num_head * self.dim_head))
+        result = self.out_projection(x)
+        result = result.reshape((batch_size, queries_len, self.out_features))
         ### END YOUR SOLUTION
 
         return result
@@ -217,10 +197,10 @@ class TransformerLayer(Module):
         dim_head: int,
         hidden_size: int,
         *,
-        dropout = 0.,
-        causal = True,
-        device = None,
-        dtype = "float32",
+        dropout=0.0,
+        causal=True,
+        device=None,
+        dtype="float32",
     ):
 
         super().__init__()
@@ -229,13 +209,29 @@ class TransformerLayer(Module):
         self.dtype = dtype
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.layer1 = Sequential(
+            AttentionLayer(
+                q_features,
+                num_head,
+                dim_head,
+                dropout=dropout,
+                causal=causal,
+                device=device,
+                dtype=dtype,
+            ),
+            Dropout(dropout),
+        )
+        self.layer2 = Sequential(
+            LayerNorm1d(q_features, device=device, dtype=dtype),
+            Linear(q_features, hidden_size, device=device, dtype=dtype),
+            ReLU(),
+            Dropout(dropout),
+            Linear(hidden_size, q_features, device=device, dtype=dtype),
+            Dropout(dropout),
+        )
         ### END YOUR SOLUTION
 
-    def forward(
-        self,
-        x
-    ):
+    def forward(self, x):
         """
         The forward function of a Transformer Layer.
         Input: the hidden states from previous layers `x` with shape (batch_size, seq_len, x_dim)
@@ -245,7 +241,10 @@ class TransformerLayer(Module):
         batch_size, seq_len, x_dim = x.shape
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        x = x + self.layer1(x)
+        x = x.reshape((batch_size * seq_len, x_dim))
+        x = x + self.layer2(x)
+        x = x.reshape((batch_size, seq_len, x_dim))
         ### END YOUR SOLUTION
 
         return x
@@ -257,16 +256,16 @@ class Transformer(Module):
         self,
         embedding_size: int,
         hidden_size: int,
-        num_layers: int, 
+        num_layers: int,
         *,
         num_head: int = 8,
         dim_head: int = 32,
-        dropout = 0.,
-        causal = True,
-        device = None,
-        dtype = "float32",
-        batch_first = False,
-        sequence_len = 2048
+        dropout=0.0,
+        causal=True,
+        device=None,
+        dtype="float32",
+        batch_first=False,
+        sequence_len=2048,
     ):
 
         super().__init__()
@@ -276,19 +275,24 @@ class Transformer(Module):
         self.batch_first = batch_first
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.embedding = Embedding(sequence_len, embedding_size, device=device, dtype=dtype)
+        layers = [TransformerLayer(embedding_size, num_head, dim_head, hidden_size, dropout=dropout, causal=causal, device=device, dtype=dtype) for _ in range(num_layers)]
+        self.layers = Sequential(*layers)
         ### END YOUR SOLUTION
 
-    def forward(
-        self,
-        x, h=None
-    ):
+    def forward(self, x, h=None):
 
         if not self.batch_first:
             x = ops.transpose(x, axes=(0, 1))
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        batch_size, seq_len, *_ = x.shape
+
+        pos_ids = ndarray.NDArray(range(seq_len), device=x.device).reshape((1, seq_len)).broadcast_to((batch_size, seq_len))
+        pos_ids = Tensor(pos_ids, device=pos_ids.device, dtype=pos_ids.dtype, requires_grad=False)
+        pos_emb = self.embedding(pos_ids)
+        x = x + pos_emb
+        x = self.layers(x)
         ### END YOUR SOLUTION
 
         if not self.batch_first:

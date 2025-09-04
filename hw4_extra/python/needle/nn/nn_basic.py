@@ -88,6 +88,7 @@ class Linear(Module):
         ### BEGIN YOUR SOLUTION
         weight_data = init.kaiming_uniform(in_features, out_features, device=device, dtype=dtype, requires_grad=True)
         self.weight = Parameter(weight_data)
+        self.bias = None
         if bias:
             bias_data = init.kaiming_uniform(out_features, 1, device=device, dtype=dtype, requires_grad=True)
             self.bias = Parameter(bias_data.reshape((1, out_features)))
@@ -200,8 +201,9 @@ class LayerNorm1d(Module):
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        mean = x.sum(axes=-1).reshape((-1, 1)).broadcast_to(x.shape) / self.dim
-        var = ((x - mean) ** 2).sum(axes=-1).reshape((-1, 1)).broadcast_to(x.shape) / self.dim
+        reduce_shape = x.shape[:-1] + (1,) # reduce over last dimension
+        mean = x.sum(axes=-1).reshape(reduce_shape).broadcast_to(x.shape) / self.dim
+        var = ((x - mean) ** 2).sum(axes=-1).reshape(reduce_shape).broadcast_to(x.shape) / self.dim
         x = (x - mean) / ((var + self.eps) ** 0.5)
         return x * self.weight.broadcast_to(x.shape) + self.bias.broadcast_to(x.shape)
         ### END YOUR SOLUTION
@@ -215,7 +217,7 @@ class Dropout(Module):
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
         if self.training:
-            mask = init.randb(*x.shape, p=1 - self.p, device=x.device)
+            mask = init.randb(*x.shape, p=1 - self.p, device=x.device, dtype=x.dtype)
             return x * mask / (1 - self.p)
         else:
             return x

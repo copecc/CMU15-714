@@ -36,7 +36,7 @@ class Conv(Module):
             in_channels, out_channels, shape, device=device, dtype=dtype, requires_grad=True
         )
         self.weight = Parameter(weight_data)
-
+        self.bias = None
         if bias:
             bound = 1 / np.sqrt(in_channels * kernel_size**2)
             bias_data = init.rand(out_channels, low=-bound, high=bound, device=device, dtype=dtype, requires_grad=True)
