@@ -1,5 +1,5 @@
-"""The module.
-"""
+"""The module."""
+
 from typing import List, Callable, Any
 from needle.autograd import Tensor
 from needle import ops
@@ -16,6 +16,7 @@ class Conv(Module):
     No grouped convolution or dilation
     Only supports square kernels
     """
+
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, bias=True, device=None, dtype="float32"):
         super().__init__()
         if isinstance(kernel_size, tuple):
@@ -28,10 +29,27 @@ class Conv(Module):
         self.stride = stride
 
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        self.padding = kernel_size // 2
+
+        shape = (kernel_size, kernel_size, in_channels, out_channels)
+        weight_data = init.kaiming_uniform(
+            in_channels, out_channels, shape, device=device, dtype=dtype, requires_grad=True
+        )
+        self.weight = Parameter(weight_data)
+
+        if bias:
+            bound = 1 / np.sqrt(in_channels * kernel_size**2)
+            bias_data = init.rand(out_channels, low=-bound, high=bound, device=device, dtype=dtype, requires_grad=True)
+            self.bias = Parameter(bias_data)
         ### END YOUR SOLUTION
 
     def forward(self, x: Tensor) -> Tensor:
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        x = ops.permute(x, (0, 2, 3, 1))  # NCHW -> NHWC
+        x = ops.conv(x, self.weight, stride=self.stride, padding=self.padding)
+        if self.bias is not None:
+            bias = self.bias.broadcast_to(x.shape)
+            x = x + bias
+        x = ops.permute(x, (0, 3, 1, 2))  # NHWC -> NCHW
+        return x
         ### END YOUR SOLUTION

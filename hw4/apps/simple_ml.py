@@ -12,7 +12,9 @@ import needle as ndl
 import needle.nn as nn
 from apps.models import *
 import time
+
 device = ndl.cpu()
+
 
 def parse_mnist(image_filesname, label_filename):
     """Read an images and labels file in MNIST format.  See this page:
@@ -90,6 +92,7 @@ def nn_epoch(X, y, W1, W2, lr=0.1, batch=100):
     raise NotImplementedError()
     ### END YOUR SOLUTION
 
+
 ### CIFAR-10 training ###
 def epoch_general_cifar10(dataloader, model, loss_fn=nn.SoftmaxLoss(), opt=None):
     """
@@ -114,8 +117,9 @@ def epoch_general_cifar10(dataloader, model, loss_fn=nn.SoftmaxLoss(), opt=None)
     ### END YOUR SOLUTION
 
 
-def train_cifar10(model, dataloader, n_epochs=1, optimizer=ndl.optim.Adam,
-          lr=0.001, weight_decay=0.001, loss_fn=nn.SoftmaxLoss):
+def train_cifar10(
+    model, dataloader, n_epochs=1, optimizer=ndl.optim.Adam, lr=0.001, weight_decay=0.001, loss_fn=nn.SoftmaxLoss
+):
     """
     Performs {n_epochs} epochs of training.
 
@@ -158,8 +162,9 @@ def evaluate_cifar10(model, dataloader, loss_fn=nn.SoftmaxLoss):
 
 
 ### PTB training ###
-def epoch_general_ptb(data, model, seq_len=40, loss_fn=nn.SoftmaxLoss(), opt=None,
-        clip=None, device=None, dtype="float32"):
+def epoch_general_ptb(
+    data, model, seq_len=40, loss_fn=nn.SoftmaxLoss(), opt=None, clip=None, device=None, dtype="float32"
+):
     """
     Iterates over the data. If optimizer is not None, sets the
     model to train mode, and for each batch updates the model parameters.
@@ -180,13 +185,54 @@ def epoch_general_ptb(data, model, seq_len=40, loss_fn=nn.SoftmaxLoss(), opt=Non
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    if opt is not None:
+        model.train()
+    else:
+        model.eval()
+
+    total_loss = 0.0
+    total_error = 0
+    total_samples = 0
+
+    nbatch, batch_size = data.shape
+
+    for i in range(nbatch - seq_len):
+        batch_x, batch_y = ndl.data.get_batch(data, i, seq_len, device=device, dtype=dtype)
+        logits, _ = model(batch_x)
+        loss = loss_fn(logits, batch_y)
+        total_loss += loss.numpy() * batch_x.shape[0]
+
+        preds = logits.numpy().argmax(axis=1)
+        labels = batch_y.numpy().reshape(-1)
+        total_error += np.sum(preds != labels)
+        total_samples += batch_x.shape[0]
+
+        if opt is not None:
+            opt.reset_grad()
+            loss.backward()
+            if clip is not None:
+                opt.clip_grad_norm(clip)
+            opt.step()
+
+    avg_error = total_error / total_samples
+    avg_loss = total_loss / total_samples
+    return 1 - avg_error, avg_loss
     ### END YOUR SOLUTION
 
 
-def train_ptb(model, data, seq_len=40, n_epochs=1, optimizer=ndl.optim.SGD,
-          lr=4.0, weight_decay=0.0, loss_fn=nn.SoftmaxLoss, clip=None,
-          device=None, dtype="float32"):
+def train_ptb(
+    model,
+    data,
+    seq_len=40,
+    n_epochs=1,
+    optimizer=ndl.optim.SGD,
+    lr=4.0,
+    weight_decay=0.0,
+    loss_fn=nn.SoftmaxLoss,
+    clip=None,
+    device=None,
+    dtype="float32",
+):
     """
     Performs {n_epochs} epochs of training.
 
@@ -207,11 +253,16 @@ def train_ptb(model, data, seq_len=40, n_epochs=1, optimizer=ndl.optim.SGD,
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    optimizer = optimizer(model.parameters(), lr=lr, weight_decay=weight_decay)
+    for _ in range(n_epochs):
+        avg_acc, avg_loss = epoch_general_ptb(
+            data, model, seq_len, loss_fn(), optimizer, clip=clip, device=device, dtype=dtype
+        )
+    return avg_acc, avg_loss
     ### END YOUR SOLUTION
 
-def evaluate_ptb(model, data, seq_len=40, loss_fn=nn.SoftmaxLoss,
-        device=None, dtype="float32"):
+
+def evaluate_ptb(model, data, seq_len=40, loss_fn=nn.SoftmaxLoss, device=None, dtype="float32"):
     """
     Computes the test accuracy and loss of the model.
 
@@ -227,8 +278,10 @@ def evaluate_ptb(model, data, seq_len=40, loss_fn=nn.SoftmaxLoss,
     """
     np.random.seed(4)
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    avg_acc, avg_loss = epoch_general_ptb(data, model, seq_len, loss_fn(), device=device, dtype=dtype)
+    return avg_acc, avg_loss
     ### END YOUR SOLUTION
+
 
 ### CODE BELOW IS FOR ILLUSTRATION, YOU DO NOT NEED TO EDIT
 
