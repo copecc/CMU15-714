@@ -25,7 +25,10 @@ class Dictionary(object):
         Returns the word's unique ID.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if word not in self.word2idx:
+            self.idx2word.append(word)
+            self.word2idx[word] = len(self.idx2word) - 1
+        return self.word2idx[word]
         ### END YOUR SOLUTION
 
     def __len__(self):
@@ -33,9 +36,8 @@ class Dictionary(object):
         Returns the number of unique words in the dictionary.
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        return len(self.idx2word)
         ### END YOUR SOLUTION
-
 
 
 class Corpus(object):
@@ -60,7 +62,18 @@ class Corpus(object):
         ids: List of ids
         """
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        assert os.path.exists(path)
+        with open(path, 'r') as f:
+            lines = f.readlines()
+        if max_lines is not None:
+            lines = lines[:max_lines]
+        ids = []
+        for line in lines:
+            words = line.strip().split() + ['<eos>']
+            for word in words:
+                id = self.dictionary.add_word(word)
+                ids.append(id)
+        return ids
         ### END YOUR SOLUTION
 
 
@@ -81,7 +94,9 @@ def batchify(data, batch_size, device, dtype):
     Returns the data as a numpy array of shape (nbatch, batch_size).
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    nbatch = len(data) // batch_size
+    data = data[: nbatch * batch_size]
+    return np.array(data, dtype=dtype).reshape((nbatch, batch_size))
     ### END YOUR SOLUTION
 
 
@@ -105,5 +120,7 @@ def get_batch(batches, i, bptt, device=None, dtype=None):
     target - Tensor of shape (bptt*bs,) with cached data as NDArray
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    data = batches[i : i + bptt, :]
+    target = batches[i + 1 : i + 1 + bptt, :]
+    return Tensor(data, device=device, dtype=dtype), Tensor(target.flatten(), device=device, dtype=dtype)
     ### END YOUR SOLUTION

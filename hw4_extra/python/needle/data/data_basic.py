@@ -4,7 +4,6 @@ from ..autograd import Tensor
 from typing import Iterator, Optional, List, Sized, Union, Iterable, Any
 
 
-
 class Dataset:
     r"""An abstract class representing a `Dataset`.
 
@@ -60,12 +59,21 @@ class DataLoader:
 
     def __iter__(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
+        if self.shuffle:
+            indices = np.random.permutation(len(self.dataset))
+            self.ordering = np.array_split(indices, range(self.batch_size, len(self.dataset), self.batch_size))
+        self.idx = 0
         ### END YOUR SOLUTION
         return self
 
     def __next__(self):
         ### BEGIN YOUR SOLUTION
-        raise NotImplementedError()
-        ### END YOUR SOLUTION
+        if self.idx >= len(self.ordering):
+            raise StopIteration
+        batch_index = self.ordering[self.idx]
+        self.idx += 1
 
+        batch_items = [self.dataset[i] for i in batch_index]
+        batch_items = list(zip(*batch_items))
+        return [Tensor(np.stack(items)) for items in batch_items]
+        ### END YOUR SOLUTION

@@ -1,7 +1,8 @@
 """Core data structures."""
+
 import needle
 from .backend_numpy import Device, cpu, all_devices
-from typing import List, Optional, NamedTuple, Tuple, Union
+from typing import Dict, List, Optional, NamedTuple, Tuple, Union
 from collections import namedtuple
 import numpy
 
@@ -15,9 +16,11 @@ TENSOR_COUNTER = 0
 # as the backend for our computations, this line will change in later homeworks
 
 import numpy as array_api
+
 NDArray = numpy.ndarray
 
 from .backend_selection import array_api, NDArray, default_device
+
 
 class Op:
     """Operator definition."""
@@ -41,9 +44,7 @@ class Op:
         """
         raise NotImplementedError()
 
-    def gradient(
-        self, out_grad: "Value", node: "Value"
-    ) -> Union["Value", Tuple["Value"]]:
+    def gradient(self, out_grad: "Value", node: "Value") -> Union["Value", Tuple["Value"]]:
         """Compute partial adjoint for each input value for a given output adjoint.
 
         Parameters
@@ -104,9 +105,7 @@ class Value:
         if self.cached_data is not None:
             return self.cached_data
         # note: data implicitly calls realized cached data
-        self.cached_data = self.op.compute(
-            *[x.realize_cached_data() for x in self.inputs]
-        )
+        self.cached_data = self.op.compute(*[x.realize_cached_data() for x in self.inputs])
         return self.cached_data
 
     def is_leaf(self):
@@ -138,12 +137,7 @@ class Value:
     @classmethod
     def make_const(cls, data, *, requires_grad=False):
         value = cls.__new__(cls)
-        value._init(
-            None,
-            [],
-            cached_data=data,
-            requires_grad=requires_grad,
-        )
+        value._init(None, [], cached_data=data, requires_grad=requires_grad)
         return value
 
     @classmethod
@@ -194,15 +188,7 @@ class TensorTuple(Value):
 class Tensor(Value):
     grad: "Tensor"
 
-    def __init__(
-        self,
-        array,
-        *,
-        device: Optional[Device] = None,
-        dtype=None,
-        requires_grad=True,
-        **kwargs
-    ):
+    def __init__(self, array, *, device: Optional[Device] = None, dtype=None, requires_grad=True, **kwargs):
         if isinstance(array, Tensor):
             if device is None:
                 device = array.device
@@ -212,9 +198,7 @@ class Tensor(Value):
                 cached_data = array.realize_cached_data()
             else:
                 # fall back, copy through numpy conversion
-                cached_data = Tensor._array_from_numpy(
-                    array.numpy(), device=device, dtype=dtype
-                )
+                cached_data = Tensor._array_from_numpy(array.numpy(), device=device, dtype=dtype)
         else:
             device = device if device else default_device()
             cached_data = Tensor._array_from_numpy(array, device=device, dtype=dtype)
@@ -248,9 +232,7 @@ class Tensor(Value):
         tensor._init(
             None,
             [],
-            cached_data=data
-            if not isinstance(data, Tensor)
-            else data.realize_cached_data(),
+            cached_data=data if not isinstance(data, Tensor) else data.realize_cached_data(),
             requires_grad=requires_grad,
         )
         return tensor
@@ -289,11 +271,7 @@ class Tensor(Value):
         return data.device
 
     def backward(self, out_grad=None):
-        out_grad = (
-            out_grad
-            if out_grad
-            else init.ones(*self.shape, dtype=self.dtype, device=self.device)
-        )
+        out_grad = out_grad if out_grad else init.ones(*self.shape, dtype=self.dtype, device=self.device)
         compute_gradient_of_variables(self, out_grad)
 
     def __repr__(self):
@@ -359,11 +337,9 @@ class Tensor(Value):
     def transpose(self, axes=None):
         return needle.ops.Transpose(axes)(self)
 
-
-
-
     __radd__ = __add__
     __rmul__ = __mul__
+
 
 def compute_gradient_of_variables(output_tensor, out_grad):
     """Take gradient of output node with respect to each node in node_list.
@@ -381,7 +357,20 @@ def compute_gradient_of_variables(output_tensor, out_grad):
     reverse_topo_order = list(reversed(find_topo_sort([output_tensor])))
 
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    for node in reverse_topo_order:
+        if not node.requires_grad:
+            continue
+        # Compute gradient for this node
+        node.grad = sum_node_list(node_to_output_grads_list.get(node, []))
+        if node.is_leaf():
+            continue
+        # Compute gradient for each input
+        input_grads = node.op.gradient_as_tuple(node.grad, node)
+        for input_node, input_node_grad in zip(node.inputs, input_grads):
+            if not input_node.requires_grad:
+                continue
+            # Accumulate gradient contributions
+            node_to_output_grads_list.setdefault(input_node, []).append(input_node_grad)
     ### END YOUR SOLUTION
 
 
@@ -394,14 +383,23 @@ def find_topo_sort(node_list: List[Value]) -> List[Value]:
     sort.
     """
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    visited = set()
+    topo_order = []
+    for node in node_list:
+        if node not in visited:
+            topo_sort_dfs(node, visited, topo_order)
+    return topo_order
     ### END YOUR SOLUTION
 
 
 def topo_sort_dfs(node, visited, topo_order):
     """Post-order DFS"""
     ### BEGIN YOUR SOLUTION
-    raise NotImplementedError()
+    visited.add(node)
+    for neighbor in node.inputs:
+        if neighbor not in visited:
+            topo_sort_dfs(neighbor, visited, topo_order)
+    topo_order.append(node)
     ### END YOUR SOLUTION
 
 
